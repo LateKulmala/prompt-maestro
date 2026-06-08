@@ -70,7 +70,8 @@ function MainPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 py-6 lg:py-10">
-      <div className="grid gap-6 lg:grid-cols-2">
+      <PresetMenu onSelect={(t) => { setInput(t); textareaRef.current?.focus(); }} />
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
         {/* LEFT — Input */}
         <section className="space-y-4">
           <div>
