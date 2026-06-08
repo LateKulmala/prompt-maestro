@@ -81,15 +81,6 @@ function AuthPage() {
               {loading && <Loader2 className="h-4 w-4 animate-spin" />}
               Sign in
             </button>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setMode(mode === "signup" ? "signin" : "signup")}
-              className="w-full text-xs text-muted-foreground hover:text-foreground transition"
-            >
-              {mode === "signup" ? "Already have an account? Sign in" : "Need an account? Create one"}
-            </button>
           </form>
         </div>
         <p className="mt-6 text-center text-xs text-muted-foreground">
