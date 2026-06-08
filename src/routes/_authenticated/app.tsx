@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { generatePrompt } from "@/lib/prompts.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Sparkles, Copy, Check, Loader2, Lightbulb, Command, CornerDownLeft } from "lucide-react";
+import { Sparkles, Copy, Check, Loader2, Lightbulb, Command, CornerDownLeft, LayoutGrid } from "lucide-react";
+import { PRESETS, CATEGORIES, type PresetCategory } from "@/lib/preset-prompts";
 
 export const Route = createFileRoute("/_authenticated/app")({
   head: () => ({ meta: [{ title: "Generate — Prompt Engine" }] }),
@@ -69,7 +70,8 @@ function MainPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 py-6 lg:py-10">
-      <div className="grid gap-6 lg:grid-cols-2">
+      <PresetMenu onSelect={(t) => { setInput(t); textareaRef.current?.focus(); }} />
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
         {/* LEFT — Input */}
         <section className="space-y-4">
           <div>
@@ -229,6 +231,60 @@ function TipBox({ content }: { content: string }) {
           <p className="text-sm text-foreground/90 leading-relaxed">{content}</p>
         </div>
       </div>
+    </div>
+  );
+}
+
+function PresetMenu({ onSelect }: { onSelect: (template: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState<PresetCategory>(CATEGORIES[0]);
+  const filtered = PRESETS.filter((p) => p.category === active);
+
+  return (
+    <div className="rounded-2xl border border-border bg-card shadow-[var(--shadow-card)] overflow-hidden">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium hover:bg-muted/30 transition"
+      >
+        <span className="inline-flex items-center gap-2">
+          <LayoutGrid className="h-4 w-4 text-primary" />
+          Valmiit promptit
+          <span className="text-xs text-muted-foreground font-normal">({PRESETS.length} mallia)</span>
+        </span>
+        <span className="text-xs text-muted-foreground">{open ? "Sulje" : "Avaa"}</span>
+      </button>
+
+      {open && (
+        <div className="border-t border-border">
+          <div className="flex flex-wrap gap-1.5 px-4 py-3 border-b border-border">
+            {CATEGORIES.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setActive(cat)}
+                className={`px-3 py-1 text-xs rounded-full border transition ${
+                  active === cat
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+          <div className="grid gap-2 p-3 sm:grid-cols-2 lg:grid-cols-3">
+            {filtered.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => { onSelect(p.template); setOpen(false); }}
+                className="text-left rounded-xl border border-border bg-background/40 p-3 hover:border-primary/50 hover:bg-background transition"
+              >
+                <div className="text-sm font-semibold">{p.title}</div>
+                <div className="mt-1 text-xs text-muted-foreground line-clamp-2">{p.description}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
