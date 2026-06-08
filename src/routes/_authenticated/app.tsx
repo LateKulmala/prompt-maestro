@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { generatePrompt } from "@/lib/prompts.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Sparkles, Copy, Check, Loader2, Lightbulb, Command, CornerDownLeft } from "lucide-react";
+import { Sparkles, Copy, Check, Loader2, Lightbulb, Command, CornerDownLeft, LayoutGrid } from "lucide-react";
+import { PRESETS, CATEGORIES, type PresetCategory } from "@/lib/preset-prompts";
 
 export const Route = createFileRoute("/_authenticated/app")({
   head: () => ({ meta: [{ title: "Generate — Prompt Engine" }] }),
