@@ -1,9 +1,9 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Search, Copy, Check, History as HistoryIcon, Sparkles, Calendar } from "lucide-react";
+import { Search, Copy, Check, History as HistoryIcon, Sparkles, Calendar, Trash2, Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/history")({
   head: () => ({ meta: [{ title: "History — Prompt Engine" }] }),
@@ -24,6 +24,7 @@ const PAGE_SIZE = 20;
 
 function HistoryPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
   const [dateFilter, setDateFilter] = useState<"all" | "today" | "week" | "month">("all");
   const [visible, setVisible] = useState(PAGE_SIZE);
@@ -38,6 +39,32 @@ function HistoryPage() {
         .limit(500);
       if (error) throw error;
       return data as Prompt[];
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("prompts").delete().eq("id", id);
+      if (error) throw error;
+      return id;
+    },
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ["prompts"] });
+      const previous = queryClient.getQueryData<Prompt[]>(["prompts"]);
+      queryClient.setQueryData<Prompt[]>(["prompts"], (old) =>
+        (old ?? []).filter((p) => p.id !== id),
+      );
+      return { previous };
+    },
+    onError: (err, _id, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(["prompts"], ctx.previous);
+      toast.error(err instanceof Error ? err.message : "Failed to delete prompt");
+    },
+    onSuccess: () => {
+      toast.success("Prompt deleted");
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["prompts"] });
     },
   });
 
@@ -118,6 +145,8 @@ function HistoryPage() {
                   sessionStorage.setItem("reusePrompt", p.input_fi);
                   navigate({ to: "/app" });
                 }}
+                onDelete={() => deleteMutation.mutate(p.id)}
+                isDeleting={deleteMutation.isPending && deleteMutation.variables === p.id}
               />
             ))}
           </div>
@@ -135,8 +164,20 @@ function HistoryPage() {
   );
 }
 
-function PromptCard({ prompt, onReuse }: { prompt: Prompt; onReuse: () => void }) {
+function PromptCard({
+  prompt,
+  onReuse,
+  onDelete,
+  isDeleting,
+}: {
+  prompt: Prompt;
+  onReuse: () => void;
+  onDelete: () => void;
+  isDeleting: boolean;
+}) {
   const [copied, setCopied] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const date = new Date(prompt.created_at);
   const dateStr = date.toLocaleString(undefined, {
     month: "short",
@@ -144,6 +185,12 @@ function PromptCard({ prompt, onReuse }: { prompt: Prompt; onReuse: () => void }
     hour: "2-digit",
     minute: "2-digit",
   });
+
+  useEffect(() => {
+    return () => {
+      if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current);
+    };
+  }, []);
 
   async function copy(e: React.MouseEvent) {
     e.stopPropagation();
@@ -153,10 +200,35 @@ function PromptCard({ prompt, onReuse }: { prompt: Prompt; onReuse: () => void }
     setTimeout(() => setCopied(false), 1500);
   }
 
+  function handleDeleteClick(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (isDeleting) return;
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current);
+      confirmTimerRef.current = setTimeout(() => setConfirmDelete(false), 3000);
+      return;
+    }
+    if (confirmTimerRef.current) {
+      clearTimeout(confirmTimerRef.current);
+      confirmTimerRef.current = null;
+    }
+    setConfirmDelete(false);
+    onDelete();
+  }
+
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onReuse}
-      className="group w-full text-left rounded-xl border border-border bg-card p-4 hover:border-primary/40 hover:bg-accent/30 transition shadow-[var(--shadow-card)]"
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onReuse();
+        }
+      }}
+      className="group w-full text-left rounded-xl border border-border bg-card p-4 hover:border-primary/40 hover:bg-accent/30 transition shadow-[var(--shadow-card)] cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/40"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
@@ -174,17 +246,37 @@ function PromptCard({ prompt, onReuse }: { prompt: Prompt; onReuse: () => void }
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           <button
+            type="button"
             onClick={copy}
+            aria-label="Copy prompt"
             className="inline-flex items-center gap-1 rounded-md border border-border bg-secondary/50 px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary transition"
           >
             {copied ? <Check className="h-3 w-3 text-primary" /> : <Copy className="h-3 w-3" />}
+          </button>
+          <button
+            type="button"
+            onClick={handleDeleteClick}
+            disabled={isDeleting}
+            aria-label={confirmDelete ? "Confirm delete prompt" : "Delete prompt"}
+            className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs transition disabled:opacity-50 ${
+              confirmDelete
+                ? "border-destructive/60 bg-destructive/15 text-destructive hover:bg-destructive/25"
+                : "border-border bg-secondary/50 text-muted-foreground hover:text-destructive hover:bg-destructive/10 hover:border-destructive/40"
+            }`}
+          >
+            {isDeleting ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Trash2 className="h-3 w-3" />
+            )}
+            {confirmDelete && !isDeleting && <span>Confirm?</span>}
           </button>
           <span className="hidden sm:inline-flex items-center gap-1 rounded-md bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary opacity-0 group-hover:opacity-100 transition">
             Reuse →
           </span>
         </div>
       </div>
-    </button>
+    </div>
   );
 }
 
