@@ -6,7 +6,7 @@ const GenerateInput = z.object({
   input_fi: z.string().min(1).max(4000),
 });
 
-const MODEL = "claude-sonnet-4-20250514";
+const MODEL = "claude-sonnet-4-5-20251022";
 
 const SYSTEM_PROMPT = `You are an expert prompt engineer. The user describes a task in Finnish. Convert it into a high-quality, optimized English prompt suitable for an LLM.
 
