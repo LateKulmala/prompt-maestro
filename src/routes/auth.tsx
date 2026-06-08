@@ -16,7 +16,6 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   const navigate = useNavigate();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -25,18 +24,8 @@ function AuthPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { emailRedirectTo: window.location.origin },
-        });
-        if (error) throw error;
-        toast.success("Account created. Signing you in…");
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-      }
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
       navigate({ to: "/app" });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Authentication failed");
@@ -76,7 +65,7 @@ function AuthPage() {
                 type="password"
                 required
                 minLength={8}
-                autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full rounded-lg border border-border bg-input/50 px-4 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30"
@@ -90,15 +79,7 @@ function AuthPage() {
               className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-60 flex items-center justify-center gap-2 shadow-[var(--shadow-glow)]"
             >
               {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-              {mode === "signup" ? "Create account" : "Sign in"}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setMode(mode === "signup" ? "signin" : "signup")}
-              className="w-full text-xs text-muted-foreground hover:text-foreground transition"
-            >
-              {mode === "signup" ? "Already have an account? Sign in" : "Need an account? Create one"}
+              Sign in
             </button>
           </form>
         </div>
