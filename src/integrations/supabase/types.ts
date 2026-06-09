@@ -14,47 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      project_contexts: {
-        Row: {
-          id: string
-          user_id: string
-          name: string
-          description: string | null
-          tech_stack: string | null
-          target_audience: string | null
-          domain_notes: string | null
-          is_active: boolean
-          sort_order: number
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          name: string
-          description?: string | null
-          tech_stack?: string | null
-          target_audience?: string | null
-          domain_notes?: string | null
-          is_active?: boolean
-          sort_order?: number
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          name?: string
-          description?: string | null
-          tech_stack?: string | null
-          target_audience?: string | null
-          domain_notes?: string | null
-          is_active?: boolean
-          sort_order?: number
-          updated_at?: string
-        }
-        Relationships: []
-      }
       api_keys: {
         Row: {
           created_at: string
@@ -85,14 +44,56 @@ export type Database = {
         }
         Relationships: []
       }
+      project_contexts: {
+        Row: {
+          created_at: string
+          description: string | null
+          domain_notes: string | null
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+          target_audience: string | null
+          tech_stack: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          domain_notes?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+          target_audience?: string | null
+          tech_stack?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          domain_notes?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+          target_audience?: string | null
+          tech_stack?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       prompts: {
         Row: {
           alternative: string | null
           created_at: string
           id: string
           input_fi: string
-          model_used: string | null
           mode: string | null
+          model_used: string | null
           output_en: string
           project_context_id: string | null
           tip: string | null
@@ -103,8 +104,8 @@ export type Database = {
           created_at?: string
           id?: string
           input_fi: string
-          model_used?: string | null
           mode?: string | null
+          model_used?: string | null
           output_en: string
           project_context_id?: string | null
           tip?: string | null
@@ -115,14 +116,22 @@ export type Database = {
           created_at?: string
           id?: string
           input_fi?: string
-          model_used?: string | null
           mode?: string | null
+          model_used?: string | null
           output_en?: string
           project_context_id?: string | null
           tip?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "prompts_project_context_id_fkey"
+            columns: ["project_context_id"]
+            isOneToOne: false
+            referencedRelation: "project_contexts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       style_profiles: {
         Row: {
