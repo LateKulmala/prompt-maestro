@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      api_keys: {
+        Row: {
+          created_at: string
+          id: string
+          key_hash: string
+          key_prefix: string
+          last_used_at: string | null
+          name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          key_hash: string
+          key_prefix: string
+          last_used_at?: string | null
+          name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          key_hash?: string
+          key_prefix?: string
+          last_used_at?: string | null
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       prompts: {
         Row: {
           alternative: string | null
@@ -43,6 +73,45 @@ export type Database = {
           model_used?: string | null
           output_en?: string
           tip?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      style_profiles: {
+        Row: {
+          audience: string | null
+          avoid: string | null
+          created_at: string
+          design_preferences: string | null
+          id: string
+          is_active: boolean
+          name: string
+          tone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          audience?: string | null
+          avoid?: string | null
+          created_at?: string
+          design_preferences?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          tone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          audience?: string | null
+          avoid?: string | null
+          created_at?: string
+          design_preferences?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          tone?: string | null
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
