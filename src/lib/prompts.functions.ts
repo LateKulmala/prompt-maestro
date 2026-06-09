@@ -1,12 +1,23 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { generateOptimizedPrompt, ANTHROPIC_MODEL, type PromptMode } from "./anthropic.server";
+import {
+  generateOptimizedPrompt,
+  iteratePrompt,
+  ANTHROPIC_MODEL,
+  type PromptMode,
+  type IterationType,
+} from "./anthropic.server";
 
 const GenerateInput = z.object({
   input_fi: z.string().min(1).max(4000),
   mode: z.enum(["general", "supabase", "react", "marketing", "n8n", "email", "content", "analysis"]).default("general"),
   project_context_id: z.string().uuid().optional(),
+});
+
+const IterateInput = z.object({
+  current_prompt: z.string().min(1).max(8000),
+  iteration_type: z.enum(["shorter", "longer", "add_examples", "add_format", "more_technical", "tighten_scope", "add_constraints"]),
 });
 
 export const generatePrompt = createServerFn({ method: "POST" })
@@ -35,7 +46,6 @@ export const generatePrompt = createServerFn({ method: "POST" })
       data.mode as PromptMode,
     );
 
-    // Persist with mode + project reference
     await context.supabase.from("prompts").insert({
       user_id: context.user.id,
       input_fi: data.input_fi.trim(),
@@ -48,6 +58,13 @@ export const generatePrompt = createServerFn({ method: "POST" })
     });
 
     return result;
+  });
+
+export const iterateExistingPrompt = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => IterateInput.parse(input))
+  .handler(async ({ data }) => {
+    return iteratePrompt(data.current_prompt, data.iteration_type as IterationType);
   });
 
 export { ANTHROPIC_MODEL };

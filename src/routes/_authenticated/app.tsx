@@ -1,23 +1,27 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
-import { generatePrompt } from "@/lib/prompts.functions";
+import { generatePrompt, iterateExistingPrompt } from "@/lib/prompts.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Sparkles, Copy, Check, Loader2, Lightbulb, Command, CornerDownLeft, LayoutGrid, Search, X, FolderOpen, ChevronDown } from "lucide-react";
+import { Sparkles, Copy, Check, Loader2, Lightbulb, Command, CornerDownLeft, LayoutGrid, Search, X, FolderOpen, ChevronDown, RefreshCw, Layers } from "lucide-react";
 import { PRESETS, CATEGORIES, type PresetCategory } from "@/lib/preset-prompts";
-import type { PromptMode } from "@/lib/anthropic.server";
+import type { PromptMode, AnatomyPart, IterationType } from "@/lib/anthropic.server";
 
 export const Route = createFileRoute("/_authenticated/app")({
   head: () => ({ meta: [{ title: "Generate — Prompt Engine" }] }),
   component: MainPage,
 });
 
+type Score = { clarity: number; specificity: number; structure: number };
+
 type Result = {
   output_en: string;
   alternative: string;
   tip: string;
   model_used: string;
+  anatomy?: AnatomyPart[];
+  score?: Score | null;
 };
 
 type ProjectOption = { id: string; name: string };
@@ -37,12 +41,15 @@ function MainPage() {
   const { user } = Route.useRouteContext();
   const navigate = useNavigate();
   const generate = useServerFn(generatePrompt);
+  const iterate = useServerFn(iterateExistingPrompt);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
   const [mode, setMode] = useState<PromptMode>("general");
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [projectId, setProjectId] = useState<string | undefined>(undefined);
+  const [iterating, setIterating] = useState(false);
+  const [showAnatomy, setShowAnatomy] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -67,6 +74,7 @@ function MainPage() {
   async function onGenerate() {
     if (!input.trim() || loading) return;
     setLoading(true);
+    setShowAnatomy(false);
     try {
       const res = (await generate({
         data: { input_fi: input.trim(), mode, project_context_id: projectId },
@@ -76,6 +84,20 @@ function MainPage() {
       toast.error(err instanceof Error ? err.message : "Generation failed");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function onIterate(type: IterationType) {
+    if (!result?.output_en || iterating) return;
+    setIterating(true);
+    setShowAnatomy(false);
+    try {
+      const res = await iterate({ data: { current_prompt: result.output_en, iteration_type: type } }) as Pick<Result, "output_en" | "anatomy" | "score">;
+      setResult((prev) => prev ? { ...prev, output_en: res.output_en, anatomy: res.anatomy, score: res.score } : prev);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Iteration failed");
+    } finally {
+      setIterating(false);
     }
   }
 
@@ -185,12 +207,39 @@ function MainPage() {
           {loading && <LoadingOutput />}
           {result && !loading && (
             <>
+              {/* Score */}
+              {result.score && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <ScoreBadge label="Selkeys" value={result.score.clarity} />
+                  <ScoreBadge label="Spesifisyys" value={result.score.specificity} />
+                  <ScoreBadge label="Rakenne" value={result.score.structure} />
+                  {result.anatomy && result.anatomy.some(a => a.text) && (
+                    <button
+                      onClick={() => setShowAnatomy((v) => !v)}
+                      className={`ml-auto inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${showAnatomy ? "bg-primary/10 border-primary/40 text-primary" : "border-border text-muted-foreground hover:text-foreground"}`}
+                    >
+                      <Layers className="h-3 w-3" />
+                      {showAnatomy ? "Piilota anatomia" : "Näytä anatomia"}
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Anatomy */}
+              {showAnatomy && result.anatomy && (
+                <AnatomyView parts={result.anatomy} />
+              )}
+
               <OutputBox
                 label="Optimized Prompt"
                 content={result.output_en}
                 model={result.model_used}
                 primary
               />
+
+              {/* Iteration buttons */}
+              <IterationBar onIterate={onIterate} loading={iterating} />
+
               <OutputBox label="Alternative" content={result.alternative} />
               <TipBox content={result.tip} />
               <button
@@ -279,6 +328,90 @@ function OutputBox({
       <pre className="font-mono text-[13px] leading-relaxed text-foreground/90 p-4 whitespace-pre-wrap break-words">
         {content}
       </pre>
+    </div>
+  );
+}
+
+function ScoreBadge({ label, value }: { label: string; value: number }) {
+  const color =
+    value >= 8 ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" :
+    value >= 5 ? "bg-amber-500/15 text-amber-400 border-amber-500/30" :
+    "bg-red-500/15 text-red-400 border-red-500/30";
+  return (
+    <div className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium ${color}`}>
+      <span>{label}</span>
+      <span className="font-bold">{value}/10</span>
+    </div>
+  );
+}
+
+const ANATOMY_COLORS: Record<AnatomyPart["type"], string> = {
+  role: "bg-violet-500/10 border-violet-500/30 text-violet-300",
+  task: "bg-blue-500/10 border-blue-500/30 text-blue-300",
+  context: "bg-cyan-500/10 border-cyan-500/30 text-cyan-300",
+  constraints: "bg-amber-500/10 border-amber-500/30 text-amber-300",
+  format: "bg-emerald-500/10 border-emerald-500/30 text-emerald-300",
+  examples: "bg-pink-500/10 border-pink-500/30 text-pink-300",
+};
+
+const ANATOMY_LABELS: Record<AnatomyPart["type"], string> = {
+  role: "Rooli",
+  task: "Tehtävä",
+  context: "Konteksti",
+  constraints: "Rajoitteet",
+  format: "Formaatti",
+  examples: "Esimerkit",
+};
+
+function AnatomyView({ parts }: { parts: AnatomyPart[] }) {
+  const visible = parts.filter(p => p.text.trim());
+  if (visible.length === 0) return null;
+  return (
+    <div className="rounded-2xl border border-border bg-card/50 p-4 space-y-2">
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">Promptin anatomia</p>
+      <div className="space-y-2">
+        {visible.map((part) => (
+          <div key={part.type} className={`rounded-lg border px-3 py-2 ${ANATOMY_COLORS[part.type]}`}>
+            <span className="text-[10px] font-bold uppercase tracking-wider opacity-70 block mb-1">
+              {ANATOMY_LABELS[part.type]}
+            </span>
+            <p className="text-xs leading-relaxed opacity-90">{part.text}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const ITERATE_OPTIONS: { type: IterationType; label: string; emoji: string }[] = [
+  { type: "shorter", label: "Lyhyempi", emoji: "✂️" },
+  { type: "longer", label: "Pidempi", emoji: "📝" },
+  { type: "add_examples", label: "Lisää esimerkit", emoji: "🔢" },
+  { type: "add_format", label: "Lisää formaatti", emoji: "📐" },
+  { type: "more_technical", label: "Teknisempi", emoji: "⚙️" },
+  { type: "tighten_scope", label: "Tiukempi scope", emoji: "🎯" },
+  { type: "add_constraints", label: "Lisää guardrailit", emoji: "🛡️" },
+];
+
+function IterationBar({ onIterate, loading }: { onIterate: (t: IterationType) => void; loading: boolean }) {
+  return (
+    <div className="rounded-xl border border-border bg-muted/20 p-2">
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1 mb-2 flex items-center gap-1.5">
+        <RefreshCw className="h-3 w-3" /> Iteroi
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        {ITERATE_OPTIONS.map((opt) => (
+          <button
+            key={opt.type}
+            onClick={() => onIterate(opt.type)}
+            disabled={loading}
+            className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-2.5 py-1 text-xs font-medium text-muted-foreground hover:text-foreground hover:border-primary/40 hover:bg-primary/5 disabled:opacity-40 transition"
+          >
+            {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <span>{opt.emoji}</span>}
+            {opt.label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
