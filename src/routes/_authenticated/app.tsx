@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { generatePrompt } from "@/lib/prompts.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Sparkles, Copy, Check, Loader2, Lightbulb, Command, CornerDownLeft, LayoutGrid, Search, X } from "lucide-react";
+import { Sparkles, Copy, Check, Loader2, Lightbulb, Command, CornerDownLeft, LayoutGrid, Search, X, FolderOpen, ChevronDown } from "lucide-react";
 import { PRESETS, CATEGORIES, type PresetCategory } from "@/lib/preset-prompts";
+import type { PromptMode } from "@/lib/anthropic.server";
 
 export const Route = createFileRoute("/_authenticated/app")({
   head: () => ({ meta: [{ title: "Generate — Prompt Engine" }] }),
@@ -19,6 +20,19 @@ type Result = {
   model_used: string;
 };
 
+type ProjectOption = { id: string; name: string };
+
+const MODES: { value: PromptMode; label: string; emoji: string }[] = [
+  { value: "general", label: "Yleinen", emoji: "✨" },
+  { value: "supabase", label: "Supabase / SQL", emoji: "🗄️" },
+  { value: "react", label: "React / TypeScript", emoji: "⚛️" },
+  { value: "marketing", label: "Markkinointi", emoji: "📣" },
+  { value: "n8n", label: "n8n / Automaatio", emoji: "🔁" },
+  { value: "email", label: "Sähköposti / Myynti", emoji: "✉️" },
+  { value: "content", label: "Sisältö", emoji: "📝" },
+  { value: "analysis", label: "Analyysi", emoji: "📊" },
+];
+
 function MainPage() {
   const { user } = Route.useRouteContext();
   const navigate = useNavigate();
@@ -26,7 +40,19 @@ function MainPage() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
+  const [mode, setMode] = useState<PromptMode>("general");
+  const [projects, setProjects] = useState<ProjectOption[]>([]);
+  const [projectId, setProjectId] = useState<string | undefined>(undefined);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    supabase
+      .from("project_contexts")
+      .select("id, name")
+      .eq("is_active", true)
+      .order("sort_order")
+      .then(({ data }) => setProjects((data as ProjectOption[]) ?? []));
+  }, []);
 
   // Preload "reuse" payload from history
   useEffect(() => {
@@ -42,18 +68,10 @@ function MainPage() {
     if (!input.trim() || loading) return;
     setLoading(true);
     try {
-      const res = (await generate({ data: { input_fi: input.trim() } })) as Result;
+      const res = (await generate({
+        data: { input_fi: input.trim(), mode, project_context_id: projectId },
+      })) as Result;
       setResult(res);
-      // Persist
-      const { error } = await supabase.from("prompts").insert({
-        user_id: user.id,
-        input_fi: input.trim(),
-        output_en: res.output_en,
-        alternative: res.alternative,
-        tip: res.tip,
-        model_used: res.model_used,
-      });
-      if (error) console.error(error);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Generation failed");
     } finally {
@@ -69,9 +87,55 @@ function MainPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 py-6 lg:py-10">
+    <div className="mx-auto max-w-7xl px-4 sm:px-6 py-6 lg:py-10 space-y-4">
+      {/* Mode + Project selector */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap gap-1.5">
+          {MODES.map((m) => (
+            <button
+              key={m.value}
+              onClick={() => setMode(m.value)}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium border transition ${
+                mode === m.value
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+              }`}
+            >
+              <span>{m.emoji}</span>
+              {m.label}
+            </button>
+          ))}
+        </div>
+        {projects.length > 0 && (
+          <div className="relative ml-auto">
+            <div className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs text-muted-foreground">
+              <FolderOpen className="h-3.5 w-3.5" />
+              <select
+                value={projectId ?? ""}
+                onChange={(e) => setProjectId(e.target.value || undefined)}
+                className="bg-transparent outline-none text-xs cursor-pointer pr-4"
+              >
+                <option value="">Ei projektia</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+              <ChevronDown className="h-3 w-3 pointer-events-none" />
+            </div>
+          </div>
+        )}
+        {projects.length === 0 && (
+          <button
+            onClick={() => navigate({ to: "/projects" })}
+            className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-dashed border-border px-3 py-1 text-xs text-muted-foreground hover:text-foreground hover:border-foreground/30 transition"
+          >
+            <FolderOpen className="h-3.5 w-3.5" /> Lisää projektikonteksti
+          </button>
+        )}
+      </div>
+
       <PresetMenu onSelect={(t) => { setInput(t); textareaRef.current?.focus(); }} />
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-2">
         {/* LEFT — Input */}
         <section className="space-y-4">
           <div>

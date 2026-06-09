@@ -1,6 +1,6 @@
 import { createFileRoute, Outlet, redirect, Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { Zap, LogOut, History, Sparkles, Palette, KeyRound } from "lucide-react";
+import { Zap, LogOut, History, Sparkles, Palette, KeyRound, FolderOpen } from "lucide-react";
 import { useEffect, useState } from "react";
 
 export const Route = createFileRoute("/_authenticated")({
@@ -63,6 +63,13 @@ function AuthedLayout() {
               <Palette className="h-3.5 w-3.5" /> Tyyli
             </Link>
             <Link
+              to="/projects"
+              className="hidden sm:inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition"
+              activeProps={{ className: "text-foreground bg-accent" }}
+            >
+              <FolderOpen className="h-3.5 w-3.5" /> Projektit
+            </Link>
+            <Link
               to="/api-keys"
               className="hidden sm:inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition"
               activeProps={{ className: "text-foreground bg-accent" }}
@@ -100,6 +107,12 @@ function AuthedLayout() {
                     className="sm:hidden flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent"
                   >
                     <Palette className="h-4 w-4" /> Tyyli
+                  </Link>
+                  <Link
+                    to="/projects"
+                    className="sm:hidden flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent"
+                  >
+                    <FolderOpen className="h-4 w-4" /> Projektit
                   </Link>
                   <Link
                     to="/api-keys"
