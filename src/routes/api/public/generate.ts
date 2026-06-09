@@ -11,6 +11,8 @@ const CORS = {
 
 const InputSchema = z.object({
   input_fi: z.string().min(1).max(4000),
+  mode: z.enum(["general", "supabase", "react", "marketing", "n8n", "email", "content", "analysis"]).default("general"),
+  project_context_id: z.string().uuid().optional(),
   style_profile_id: z.string().uuid().optional(),
 });
 
@@ -30,7 +32,9 @@ export const Route = createFileRoute("/api/public/generate")({
   server: {
     handlers: {
       OPTIONS: async () => new Response(null, { status: 204, headers: CORS }),
+
       POST: async ({ request }) => {
+        // Auth
         const auth = request.headers.get("authorization") ?? "";
         const headerKey = request.headers.get("x-api-key") ?? "";
         const raw = (auth.startsWith("Bearer ") ? auth.slice(7) : "") || headerKey;
@@ -45,36 +49,56 @@ export const Route = createFileRoute("/api/public/generate")({
           .maybeSingle();
         if (!keyRow) return json({ error: "Invalid API key" }, 401);
 
+        // Parse body
         let payload: unknown;
         try { payload = await request.json(); } catch { return json({ error: "Invalid JSON body" }, 400); }
         const parsed = InputSchema.safeParse(payload);
         if (!parsed.success) return json({ error: "Invalid input", details: parsed.error.flatten() }, 400);
 
-        // Load style profile (explicit id, or active for the owner)
-        let profileQuery = supabaseAdmin
-          .from("style_profiles")
-          .select("name, tone, audience, design_preferences, avoid")
-          .eq("user_id", keyRow.user_id);
-        profileQuery = parsed.data.style_profile_id
-          ? profileQuery.eq("id", parsed.data.style_profile_id)
-          : profileQuery.eq("is_active", true);
-        const { data: profile } = await profileQuery.maybeSingle();
+        // Load style profile and project context in parallel
+        const profileQuery = parsed.data.style_profile_id
+          ? supabaseAdmin.from("style_profiles").select("name, tone, audience, design_preferences, avoid").eq("id", parsed.data.style_profile_id).maybeSingle()
+          : supabaseAdmin.from("style_profiles").select("name, tone, audience, design_preferences, avoid").eq("user_id", keyRow.user_id).eq("is_active", true).maybeSingle();
+
+        const projectQuery = parsed.data.project_context_id
+          ? supabaseAdmin.from("project_contexts").select("name, description, tech_stack, target_audience, domain_notes").eq("id", parsed.data.project_context_id).eq("user_id", keyRow.user_id).maybeSingle()
+          : Promise.resolve({ data: null });
+
+        const [{ data: profile }, { data: project }] = await Promise.all([profileQuery, projectQuery]);
 
         try {
-          const result = await generateOptimizedPrompt(parsed.data.input_fi, profile);
+          const result = await generateOptimizedPrompt(
+            parsed.data.input_fi,
+            profile,
+            project,
+            parsed.data.mode,
+          );
 
-          // Best-effort logging + last_used_at update
-          await supabaseAdmin.from("api_keys").update({ last_used_at: new Date().toISOString() }).eq("id", keyRow.id);
-          await supabaseAdmin.from("prompts").insert({
-            user_id: keyRow.user_id,
-            input_fi: parsed.data.input_fi,
+          // Fire-and-forget: update last_used + log to history
+          Promise.all([
+            supabaseAdmin.from("api_keys").update({ last_used_at: new Date().toISOString() }).eq("id", keyRow.id),
+            supabaseAdmin.from("prompts").insert({
+              user_id: keyRow.user_id,
+              input_fi: parsed.data.input_fi,
+              output_en: result.output_en,
+              alternative: result.alternative,
+              tip: result.tip,
+              model_used: result.model_used,
+              mode: parsed.data.mode,
+              project_context_id: parsed.data.project_context_id ?? null,
+            }),
+          ]).catch(() => {});
+
+          return json({
+            ok: true,
             output_en: result.output_en,
             alternative: result.alternative,
             tip: result.tip,
+            anatomy: result.anatomy,
+            score: result.score,
             model_used: result.model_used,
+            mode: parsed.data.mode,
           });
-
-          return json(result);
         } catch (err) {
           return json({ error: err instanceof Error ? err.message : "Generation failed" }, 500);
         }
