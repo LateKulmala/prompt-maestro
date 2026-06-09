@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { generatePrompt } from "@/lib/prompts.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Sparkles, Copy, Check, Loader2, Lightbulb, Command, CornerDownLeft, LayoutGrid } from "lucide-react";
+import { Sparkles, Copy, Check, Loader2, Lightbulb, Command, CornerDownLeft, LayoutGrid, Search, X } from "lucide-react";
 import { PRESETS, CATEGORIES, type PresetCategory } from "@/lib/preset-prompts";
 
 export const Route = createFileRoute("/_authenticated/app")({
@@ -237,8 +237,20 @@ function TipBox({ content }: { content: string }) {
 
 function PresetMenu({ onSelect }: { onSelect: (template: string) => void }) {
   const [open, setOpen] = useState(false);
-  const [active, setActive] = useState<PresetCategory>(CATEGORIES[0]);
-  const filtered = PRESETS.filter((p) => p.category === active);
+  const [active, setActive] = useState<PresetCategory | "Kaikki">("Kaikki");
+  const [query, setQuery] = useState("");
+
+  const q = query.trim().toLowerCase();
+  const filtered = PRESETS.filter((p) => {
+    if (active !== "Kaikki" && p.category !== active) return false;
+    if (!q) return true;
+    return (
+      p.title.toLowerCase().includes(q) ||
+      p.description.toLowerCase().includes(q) ||
+      p.template.toLowerCase().includes(q) ||
+      p.category.toLowerCase().includes(q)
+    );
+  });
 
   return (
     <div className="rounded-2xl border border-border bg-card shadow-[var(--shadow-card)] overflow-hidden">
@@ -256,33 +268,63 @@ function PresetMenu({ onSelect }: { onSelect: (template: string) => void }) {
 
       {open && (
         <div className="border-t border-border">
-          <div className="flex flex-wrap gap-1.5 px-4 py-3 border-b border-border">
-            {CATEGORIES.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setActive(cat)}
-                className={`px-3 py-1 text-xs rounded-full border transition ${
-                  active === cat
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
+          <div className="px-4 py-3 border-b border-border space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Hae prompteja…"
+                className="w-full rounded-md border border-border bg-background pl-9 pr-9 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
+              />
+              {query && (
+                <button
+                  onClick={() => setQuery("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label="Tyhjennä"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {(["Kaikki", ...CATEGORIES] as const).map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setActive(cat)}
+                  className={`px-3 py-1 text-xs rounded-full border transition ${
+                    active === cat
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="grid gap-2 p-3 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => { onSelect(p.template); setOpen(false); }}
-                className="text-left rounded-xl border border-border bg-background/40 p-3 hover:border-primary/50 hover:bg-background transition"
-              >
-                <div className="text-sm font-semibold">{p.title}</div>
-                <div className="mt-1 text-xs text-muted-foreground line-clamp-2">{p.description}</div>
-              </button>
-            ))}
-          </div>
+          {filtered.length === 0 ? (
+            <div className="p-6 text-center text-sm text-muted-foreground">
+              Ei osumia haulla "{query}".
+            </div>
+          ) : (
+            <div className="grid gap-2 p-3 sm:grid-cols-2 lg:grid-cols-3">
+              {filtered.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => { onSelect(p.template); setOpen(false); }}
+                  className="text-left rounded-xl border border-border bg-background/40 p-3 hover:border-primary/50 hover:bg-background transition"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-sm font-semibold truncate">{p.title}</div>
+                    <span className="text-[10px] text-muted-foreground shrink-0 rounded-full bg-muted/60 px-2 py-0.5">{p.category}</span>
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground line-clamp-2">{p.description}</div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

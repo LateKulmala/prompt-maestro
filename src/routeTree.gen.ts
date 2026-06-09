@@ -12,8 +12,11 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedStyleRouteImport } from './routes/_authenticated/style'
 import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated/history'
 import { Route as AuthenticatedAppRouteImport } from './routes/_authenticated/app'
+import { Route as AuthenticatedApiKeysRouteImport } from './routes/_authenticated/api-keys'
+import { Route as ApiPublicGenerateRouteImport } from './routes/api/public/generate'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -29,6 +32,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedStyleRoute = AuthenticatedStyleRouteImport.update({
+  id: '/style',
+  path: '/style',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedHistoryRoute = AuthenticatedHistoryRouteImport.update({
   id: '/history',
   path: '/history',
@@ -39,45 +47,82 @@ const AuthenticatedAppRoute = AuthenticatedAppRouteImport.update({
   path: '/app',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedApiKeysRoute = AuthenticatedApiKeysRouteImport.update({
+  id: '/api-keys',
+  path: '/api-keys',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const ApiPublicGenerateRoute = ApiPublicGenerateRouteImport.update({
+  id: '/api/public/generate',
+  path: '/api/public/generate',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/api-keys': typeof AuthenticatedApiKeysRoute
   '/app': typeof AuthenticatedAppRoute
   '/history': typeof AuthenticatedHistoryRoute
+  '/style': typeof AuthenticatedStyleRoute
+  '/api/public/generate': typeof ApiPublicGenerateRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/api-keys': typeof AuthenticatedApiKeysRoute
   '/app': typeof AuthenticatedAppRoute
   '/history': typeof AuthenticatedHistoryRoute
+  '/style': typeof AuthenticatedStyleRoute
+  '/api/public/generate': typeof ApiPublicGenerateRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/_authenticated/api-keys': typeof AuthenticatedApiKeysRoute
   '/_authenticated/app': typeof AuthenticatedAppRoute
   '/_authenticated/history': typeof AuthenticatedHistoryRoute
+  '/_authenticated/style': typeof AuthenticatedStyleRoute
+  '/api/public/generate': typeof ApiPublicGenerateRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/app' | '/history'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/api-keys'
+    | '/app'
+    | '/history'
+    | '/style'
+    | '/api/public/generate'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/app' | '/history'
+  to:
+    | '/'
+    | '/auth'
+    | '/api-keys'
+    | '/app'
+    | '/history'
+    | '/style'
+    | '/api/public/generate'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/_authenticated/api-keys'
     | '/_authenticated/app'
     | '/_authenticated/history'
+    | '/_authenticated/style'
+    | '/api/public/generate'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiPublicGenerateRoute: typeof ApiPublicGenerateRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -103,6 +148,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/style': {
+      id: '/_authenticated/style'
+      path: '/style'
+      fullPath: '/style'
+      preLoaderRoute: typeof AuthenticatedStyleRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/history': {
       id: '/_authenticated/history'
       path: '/history'
@@ -117,17 +169,35 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/api-keys': {
+      id: '/_authenticated/api-keys'
+      path: '/api-keys'
+      fullPath: '/api-keys'
+      preLoaderRoute: typeof AuthenticatedApiKeysRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/api/public/generate': {
+      id: '/api/public/generate'
+      path: '/api/public/generate'
+      fullPath: '/api/public/generate'
+      preLoaderRoute: typeof ApiPublicGenerateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedApiKeysRoute: typeof AuthenticatedApiKeysRoute
   AuthenticatedAppRoute: typeof AuthenticatedAppRoute
   AuthenticatedHistoryRoute: typeof AuthenticatedHistoryRoute
+  AuthenticatedStyleRoute: typeof AuthenticatedStyleRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedApiKeysRoute: AuthenticatedApiKeysRoute,
   AuthenticatedAppRoute: AuthenticatedAppRoute,
   AuthenticatedHistoryRoute: AuthenticatedHistoryRoute,
+  AuthenticatedStyleRoute: AuthenticatedStyleRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
@@ -137,17 +207,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiPublicGenerateRoute: ApiPublicGenerateRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
