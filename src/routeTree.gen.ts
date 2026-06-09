@@ -17,8 +17,8 @@ import { Route as AuthenticatedProjectsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated/history'
 import { Route as AuthenticatedAppRouteImport } from './routes/_authenticated/app'
 import { Route as AuthenticatedApiKeysRouteImport } from './routes/_authenticated/api-keys'
-import { Route as ApiPublicGenerateRouteImport } from './routes/api/public/generate'
 import { Route as ApiPublicIterateRouteImport } from './routes/api/public/iterate'
+import { Route as ApiPublicGenerateRouteImport } from './routes/api/public/generate'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -59,14 +59,14 @@ const AuthenticatedApiKeysRoute = AuthenticatedApiKeysRouteImport.update({
   path: '/api-keys',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const ApiPublicGenerateRoute = ApiPublicGenerateRouteImport.update({
-  id: '/api/public/generate',
-  path: '/api/public/generate',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiPublicIterateRoute = ApiPublicIterateRouteImport.update({
   id: '/api/public/iterate',
   path: '/api/public/iterate',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicGenerateRoute = ApiPublicGenerateRouteImport.update({
+  id: '/api/public/generate',
+  path: '/api/public/generate',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -208,18 +208,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedApiKeysRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/api/public/generate': {
-      id: '/api/public/generate'
-      path: '/api/public/generate'
-      fullPath: '/api/public/generate'
-      preLoaderRoute: typeof ApiPublicGenerateRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/public/iterate': {
       id: '/api/public/iterate'
       path: '/api/public/iterate'
       fullPath: '/api/public/iterate'
       preLoaderRoute: typeof ApiPublicIterateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/generate': {
+      id: '/api/public/generate'
+      path: '/api/public/generate'
+      fullPath: '/api/public/generate'
+      preLoaderRoute: typeof ApiPublicGenerateRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
