@@ -47,7 +47,7 @@ export const generatePrompt = createServerFn({ method: "POST" })
     );
 
     await context.supabase.from("prompts").insert({
-      user_id: context.user.id,
+      user_id: context.userId,
       input_fi: data.input_fi.trim(),
       output_en: result.output_en,
       alternative: result.alternative,
